@@ -2,28 +2,26 @@
 Django Magic Cards
 ==================
 
-.. image:: https://badge.fury.io/py/django-magic-cards.svg
-    :target: https://badge.fury.io/py/django-magic-cards
-
-.. image:: https://travis-ci.org/pbaranay/django-magic-cards.svg?branch=master
-    :target: https://travis-ci.org/pbaranay/django-magic-cards
-
-.. image:: https://codecov.io/gh/pbaranay/django-magic-cards/branch/master/graph/badge.svg
-    :target: https://codecov.io/gh/pbaranay/django-magic-cards
+![License](https://badgen.net/github/license/dcollinsn/django-magic-cards)
+![Last Commit](https://badgen.net/github/last-commit/dcollinsn/django-magic-cards)
+[![Dependabot Status](https://api.dependabot.com/badges/status?host=github&repo=dcollinsn/django-magic-cards)](https://dependabot.com)
+[![Total alerts](https://img.shields.io/lgtm/alerts/g/dcollinsn/django-magic-cards.svg?logo=lgtm&logoWidth=18)](https://lgtm.com/projects/g/dcollinsn/django-magic-cards/alerts/)
+[![Patreon](https://badgen.net/badge//Support%20me%20on%20Patreon/cyan?icon=patreon)](https://patreon.com/dcollins_judge)
+[![Buy me a Coffee?](https://badgen.net/badge/Ko-fi/Buy%20me%20a%20Coffee/cyan)](https://ko-fi.com/dcollins/)
 
 Django Magic Cards is a pluggable Django app for the Oracle text of all Magic: the Gathering cards.
 
 Documentation
 -------------
 
-The full documentation is at https://django-magic-cards.readthedocs.io.
+The full documentation is at https://django-magic-cards.readthedocs.io. However, it may be outdated, as I don't have comaint.
 
 Quickstart
 ----------
 
 Install the package::
 
-    pip install django-magic-cards
+    pip install -e git+git://github.com/dcollinsn/django-magic-cards.git@master#egg=django_magic-cards
 
 Add the app to your `INSTALLED_APPS`:
 
