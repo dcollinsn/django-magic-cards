@@ -8,7 +8,7 @@ from django.db import transaction
 
 from magic_cards.models import Artist, Card, CardSubtype, CardSupertype, CardType, Printing, Set
 
-MTG_JSON_URL = 'https://mtgjson.com/json/AllSets.json.zip'
+MTG_JSON_URL = 'https://mtgjson.com/api/v5/AllSetFiles.zip'
 
 
 class Everything:
@@ -20,13 +20,14 @@ class Everything:
 
 def fetch_data():
     r = requests.get(MTG_JSON_URL)
+    sets_data = {}
     with closing(r), zipfile.ZipFile(io.BytesIO(r.content)) as archive:
         unzipped_files = archive.infolist()
-        if len(unzipped_files) != 1:
-            raise RuntimeError("Found an unexpected number of files in the MTGJSON archive.")
-        data = archive.read(archive.infolist()[0])
-    decoded_data = data.decode('utf-8')
-    sets_data = json.loads(decoded_data)
+        for zipinfo in unzipped_files:
+            decoded_data = archive.read(zipinfo).decode('utf-8')
+            this_set = json.loads(decoded_data)
+            code = this_set["data"]["code"]
+            sets_data[code] = this_set["data"]
     return sets_data
 
 

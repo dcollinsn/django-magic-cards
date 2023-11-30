@@ -28,7 +28,7 @@ class Card(NameMixin, models.Model):
 
 
 class Set(NameMixin, models.Model):
-    name = models.CharField(max_length=63, unique=True)
+    name = models.CharField(max_length=63)
     code = models.CharField(max_length=8, unique=True)
 
 
