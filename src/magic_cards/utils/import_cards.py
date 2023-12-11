@@ -103,6 +103,12 @@ def parse_data(sets_data, set_codes):
             power = card_data.get('power', '')
             toughness = card_data.get('toughness', '')
             loyalty = card_data.get('loyalty', None)
+
+            # Check if this is a DFC
+            layout = card_data.get('layout')
+            if layout in ('transform', 'modal_dfc'):
+                name = card_data.get('faceName', name)
+
             card, created = Card.objects.update_or_create(
                 name=name, defaults={
                     'mana_cost': mana_cost,
