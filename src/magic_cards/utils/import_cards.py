@@ -1,4 +1,5 @@
 import io
+import itertools
 import json
 import zipfile
 from contextlib import closing
@@ -89,7 +90,10 @@ def parse_data(sets_data, set_codes):
         printings_to_create = []
 
         # Create cards
-        all_cards_data = data['cards']
+        all_cards_data = itertools.chain(
+            data['cards'],
+            data.get('tokens', []),
+        )
         for card_data in all_cards_data:
             # Skip tokens
             layout = card_data['layout']
@@ -106,7 +110,7 @@ def parse_data(sets_data, set_codes):
 
             # Check if this is a DFC
             layout = card_data.get('layout')
-            if layout in ('transform', 'modal_dfc'):
+            if layout in ('transform', 'modal_dfc', 'double_faced_token'):
                 name = card_data.get('faceName', name)
 
             card, created = Card.objects.update_or_create(
@@ -142,7 +146,7 @@ def parse_data(sets_data, set_codes):
                 artist = None
             multiverse_id = card_data.get('multiverseId', None)  # Missing on certain sets
             flavor_text = card_data.get('flavor', '')
-            rarity = card_data['rarity']
+            rarity = card_data.get('rarity', '')  # Absent on tokens
             number = card_data.get('number', '')  # Absent on old sets
             # If the Set was just created, we don't need to check if the Printing already exists,
             # and we can leverage bulk_create.
