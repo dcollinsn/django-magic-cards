@@ -17,9 +17,9 @@ class Card(NameMixin, models.Model):
     name = models.CharField(max_length=255, unique=True)
     mana_cost = models.CharField(max_length=63, blank=True)
 
-    supertypes = models.ManyToManyField('CardSupertype')
+    supertypes = models.ManyToManyField('CardSupertype', blank=True)
     types = models.ManyToManyField('CardType')
-    subtypes = models.ManyToManyField('CardSubtype')
+    subtypes = models.ManyToManyField('CardSubtype', blank=True)
 
     text = models.TextField(blank=True)
     power = models.CharField(max_length=7, blank=True)
