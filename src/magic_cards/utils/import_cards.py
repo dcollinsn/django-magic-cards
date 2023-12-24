@@ -7,9 +7,17 @@ from contextlib import closing
 import requests
 from django.db import transaction
 
-from magic_cards.models import Artist, Card, CardSubtype, CardSupertype, CardType, Printing, Set
+from magic_cards.models import (
+    Card,
+    SetType,
+    Set,
+    FrameEffect,
+    PromoType,
+    Printing,
+    Artist,
+)
 
-MTG_JSON_URL = 'https://mtgjson.com/api/v5/AllSetFiles.zip'
+SCRYFALL_BULK_DATA = "https://api.scryfall.com/bulk-data"
 
 
 class Everything:
@@ -20,16 +28,18 @@ class Everything:
 
 
 def fetch_data():
-    r = requests.get(MTG_JSON_URL)
-    sets_data = {}
-    with closing(r), zipfile.ZipFile(io.BytesIO(r.content)) as archive:
-        unzipped_files = archive.infolist()
-        for zipinfo in unzipped_files:
-            decoded_data = archive.read(zipinfo).decode('utf-8')
-            this_set = json.loads(decoded_data)
-            code = this_set["data"]["code"]
-            sets_data[code] = this_set["data"]
-    return sets_data
+    r = requests.get(SCRYFALL_BULK_DATA)
+    r.raise_for_status()
+    files_data = r.json()
+    default_cards_data = [x for x in files_data["data"] if x["type"] == "default_cards"]
+    if len(default_cards_data) != 1:
+        raise Exception("Too many or not enough URIs for Default Cards JSON")
+
+    default_cards_url = default_cards_data[0]["download_uri"]
+    r = requests.get(default_cards_url)
+    r.raise_for_status()
+    cards = r.json()
+    return cards
 
 
 def parse_rarity(string):
@@ -65,11 +75,18 @@ class ModelCache(dict):
             created = True
         return result, created
 
+def get_from_face_or_card(face, card, field, default=None):
+    return face.get(field, card.get(field, default))
 
-def parse_data(sets_data, set_codes):
+def parse_data(cards_data, set_codes):
+    CACHED_MODELS = [
+        FrameEffect,
+        PromoType,
+        SetType,
+    ]
     # Load supertypes, types, and subtypes into memory
     cache = ModelCache()
-    for model in [CardSupertype, CardType, CardSubtype]:
+    for model in CACHED_MODELS:
         cache[model] = {obj.name.lower(): obj for obj in model.objects.all()}
     # Load relevant sets into memory
     if set_codes is Everything:
@@ -77,120 +94,116 @@ def parse_data(sets_data, set_codes):
     else:
         cache[Set] = {obj.code.lower(): obj for obj in Set.objects.filter(code__in=set_codes)}
 
-    # Process the data set-by-set
-    for code, data in sets_data.items():
+    printings_to_create = []
 
-        # Skip sets that have not been chosen
-        if set_codes is not Everything and code not in set_codes:
-            continue
+    for card in cards_data:
+        faces = card.get("card_faces", [{}])
+        for face in faces:
 
-        # Create the set
-        magic_set, set_created = cache.get_or_create(Set, 'code', code, name=data['name'])
+            # Skip sets that have not been chosen
+            if set_codes is not Everything and card['set'] not in set_codes:
+                continue
 
-        printings_to_create = []
+            # Create the set
+            set_kwargs = {
+                'name': card['set_name'],
+                'code': card['set'],
+            }
+            if 'set_type' in card:
+                set_type, st_created = cache.get_or_create(
+                    SetType,
+                    'name',
+                    card['set_type'],
+                )
+                set_kwargs['set_type'] = set_type
+            magic_set, set_created = cache.get_or_create(
+                Set,
+                'scryfall_id',
+                card['set_id'],
+                **set_kwargs,
+            )
 
-        # Create cards
-        all_cards_data = itertools.chain(
-            data['cards'],
-            data.get('tokens', []),
-        )
-        for card_data in all_cards_data:
             # Skip tokens
-            layout = card_data['layout']
+            layout = card['layout']
             if layout == 'token':
                 continue
 
             # Card info
-            name = card_data['name']
-            mana_cost = card_data.get('manaCost', '')
-            text = card_data.get('text', '')
-            power = card_data.get('power', '')
-            toughness = card_data.get('toughness', '')
-            loyalty = card_data.get('loyalty', None)
+            name = get_from_face_or_card(face, card, 'name')
+            mana_cost = get_from_face_or_card(face, card, 'mana_cost', '')
+            type_line = get_from_face_or_card(face, card, 'type_line', '')
+            text = get_from_face_or_card(face, card, 'oracle_text', '')
+            power = get_from_face_or_card(face, card, 'power', '')
+            toughness = get_from_face_or_card(face, card, 'toughness', '')
+            loyalty = get_from_face_or_card(face, card, 'loyalty', None)
 
-            # Check if this is a DFC
-            layout = card_data.get('layout')
-            if layout in ('transform', 'modal_dfc', 'double_faced_token'):
-                name = card_data.get('faceName', name)
-
-            card, created = Card.objects.update_or_create(
+            card_obj, created = Card.objects.update_or_create(
                 name=name, defaults={
                     'mana_cost': mana_cost,
+                    'type_line': type_line,
                     'text': text,
                     'power': power,
                     'toughness': toughness,
                     'loyalty': loyalty,
+                    'layout': layout,
+                    'scryfall_id': card.get('oracle_id', ''),
                 })
-            supertypes = card_data.get('supertypes', [])
-            types = card_data['types']
-            subtypes = card_data.get('subtypes', [])
-            if not created:
-                card.supertypes.clear()
-                card.types.clear()
-                card.subtypes.clear()
-            for supertype_name in supertypes:
-                supertype, _ = cache.get_or_create(CardSupertype, 'name', supertype_name)
-                card.supertypes.add(supertype)
-            for type_name in types:
-                card_type, _ = cache.get_or_create(CardType, 'name', type_name)
-                card.types.add(card_type)
-            for subtype_name in subtypes:
-                subtype, _ = cache.get_or_create(CardSubtype, 'name', subtype_name)
-                card.subtypes.add(subtype)
+            type_line = get_from_face_or_card(face, card, 'type_line', '')
 
             # Printing info
-            artist_name = card_data.get('artist') # Missing on certain cards
+            artist_name = get_from_face_or_card(face, card, 'artist') # Missing on certain cards
             if artist_name:
                 artist, _ = Artist.objects.get_or_create(full_name=artist_name)
             else:
                 artist = None
-            multiverse_id = card_data.get('multiverseId', None)  # Missing on certain sets
-            flavor_text = card_data.get('flavor', '')
-            rarity = card_data.get('rarity', '')  # Absent on tokens
-            number = card_data.get('number', '')  # Absent on old sets
+            multiverse_ids = card.get('multiverse_ids', None)  # Missing on certain sets
+            if multiverse_ids:
+                multiverse_id = multiverse_ids[0]
+            else:
+                multiverse_id = None
+            flavor_text = get_from_face_or_card(face, card, 'flavor', '')
+            rarity = card.get('rarity', '')  # Absent on tokens
+            number = card.get('number', '')  # Absent on old sets
             # If the Set was just created, we don't need to check if the Printing already exists,
             # and we can leverage bulk_create.
             printing_kwargs = {
-                'card': card,
                 'set': magic_set,
                 'rarity': parse_rarity(rarity),
                 'flavor_text': flavor_text,
                 'artist': artist,
                 'number': number,
-                'multiverse_id': multiverse_id
+                'multiverse_id': multiverse_id,
             }
-            if set_created:
-                printings_to_create.append(Printing(**printing_kwargs))
-            else:
-                # Use .filter().exists() followed by a create() instead of get_or_create,
-                # since these kwargs aren't unique for sets without proper multiverse_ids.
-                if not Printing.objects.filter(**printing_kwargs).exists():
-                    Printing.objects.create(**printing_kwargs)
+            image_data = get_from_face_or_card(face, card, 'image_uris', {})
+            if 'normal' in image_data:
+                printing_kwargs['scryfall_image_url'] = image_data['normal']
 
-        if printings_to_create:
-            Printing.objects.bulk_create(printings_to_create)
+            printing, printing_created = Printing.objects.update_or_create(
+                scryfall_id=card['id'],
+                card=card_obj,
+                defaults=printing_kwargs,
+            )
+            if 'frame_effects' in card:
+                frame_effects = [
+                    cache.get_or_create(FrameEffect, 'name', fe)[0]
+                    for fe in card['frame_effects']
+                ]
+                printing.frame_effects.set(frame_effects)
+            if 'promo_types' in card:
+                promo_types = [
+                    cache.get_or_create(PromoType, 'name', pt)[0]
+                    for pt in card['promo_types']
+                ]
+                printing.promo_types.set(promo_types)
 
-    # Remove extra Printings caused by data that is duplicated on MTGJSON.
-    # https://github.com/mtgjson/mtgjson/issues/388
-    if set_codes is Everything or 'BOK' in set_codes:
-        bugged_card_names = ['Jaraku the Interloper', 'Scarmaker']
-        for name in bugged_card_names:
-            extra_printings = Printing.objects.filter(
-                set__code='BOK', card__name=name)[1:].values_list(
-                    'pk', flat=True)
-            Printing.objects.filter(pk__in=list(extra_printings)).delete()
-
-    # Clean up any supertypes, subtypes, and types that have no Cards left.
-    for model in [CardSubtype, CardType, CardSupertype]:
-        for obj in model.objects.all():
-            if obj.card_set.count() == 0:
-                obj.delete()
+    if printings_to_create:
+        Printing.objects.bulk_create(printings_to_create)
 
 
 @transaction.atomic
 def import_cards(set_codes=Everything):
-    sets_data = fetch_data()
-    parse_data(sets_data, set_codes)
+    cards_data = fetch_data()
+    parse_data(cards_data, set_codes)
 
 
 if __name__ == "__main__":

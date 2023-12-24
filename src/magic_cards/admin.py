@@ -1,6 +1,14 @@
 from django.contrib import admin
 
-from .models import Card, Set, Printing, CardSupertype, CardType, CardSubtype, Artist
+from .models import (
+    Card,
+    Set,
+    Printing,
+    Artist,
+    SetType,
+    FrameEffect,
+    PromoType,
+)
 
 
 @admin.register(Card)
@@ -25,16 +33,16 @@ class ArtistAdmin(admin.ModelAdmin):
     search_fields = ['full_name']
 
 
-@admin.register(CardSupertype)
-class CardSupertypeAdmin(admin.ModelAdmin):
+@admin.register(SetType)
+class SetTypeAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
-@admin.register(CardType)
-class CardTypeAdmin(admin.ModelAdmin):
+@admin.register(FrameEffect)
+class FrameEffectAdmin(admin.ModelAdmin):
     search_fields = ['name']
 
 
-@admin.register(CardSubtype)
-class CardSubtypeAdmin(admin.ModelAdmin):
+@admin.register(PromoType)
+class PromoTypeAdmin(admin.ModelAdmin):
     search_fields = ['name']

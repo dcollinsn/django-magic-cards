@@ -1,7 +1,15 @@
 from django.core.management import BaseCommand
 import inflect
 
-from magic_cards.models import Card, Printing, Set
+from magic_cards.models import (
+    Card,
+    SetType,
+    Set,
+    FrameEffect,
+    PromoType,
+    Printing,
+    Artist,
+)
 from magic_cards.utils.import_cards import import_cards, Everything
 
 
@@ -9,9 +17,27 @@ class Command(BaseCommand):
     help = 'Imports data from MTGJSON into your local database.'
 
     def add_arguments(self, parser):
+        parser.add_argument(
+            "--flush",
+            help="flush all tables before importing",
+            action="store_true",
+        )
         parser.add_argument('set_code', nargs='*', type=str)
 
     def handle(self, *args, **options):
+        if options["flush"]:
+            for klass in (
+                Card,
+                SetType,
+                Set,
+                FrameEffect,
+                PromoType,
+                Printing,
+                Artist,
+            ):
+                print(f"Deleting all objects of class {klass}")
+                klass.objects.all().delete()
+
         models_to_track = [Set, Card, Printing]
         initial = {model: model.objects.count() for model in models_to_track}
 
