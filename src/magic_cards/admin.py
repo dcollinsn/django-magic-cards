@@ -26,6 +26,7 @@ class SetAdmin(admin.ModelAdmin):
 class PrintingAdmin(admin.ModelAdmin):
     search_fields = ['card__name']
     list_filter = ['set']
+    raw_id_fields = ['card']
 
 
 @admin.register(Artist)

@@ -16,7 +16,7 @@ class NameMixin(object):
 class Card(NameMixin, models.Model):
     scryfall_id = models.CharField(max_length=63, null=True, blank=True)
 
-    name = models.CharField(max_length=255)
+    name = models.CharField(max_length=255, unique=True)
     mana_cost = models.CharField(max_length=63, blank=True)
 
     text = models.TextField(blank=True)
@@ -36,7 +36,7 @@ class Set(NameMixin, models.Model):
     scryfall_id = models.CharField(max_length=63, null=True, blank=True)
 
     name = models.CharField(max_length=63)
-    code = models.CharField(max_length=8)
+    code = models.CharField(max_length=8, unique=True)
 
     set_type = models.ForeignKey(
         SetType,
@@ -44,6 +44,12 @@ class Set(NameMixin, models.Model):
         null=True,
         blank=True,
     )
+
+    release_date = models.DateField(null=True, blank=True)
+    digital = models.BooleanField(default=False)
+    foil_only = models.BooleanField(default=False)
+    nonfoil_only = models.BooleanField(default=False)
+    icon_uri = models.CharField(max_length=255, null=True, blank=True)
 
 
 class FrameEffect(NameMixin, models.Model):
