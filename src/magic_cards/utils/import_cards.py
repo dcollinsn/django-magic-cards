@@ -177,6 +177,10 @@ def parse_data(cards_data, set_codes):
             if layout == 'token':
                 continue
 
+            # Skip "art series", they don't have any rules fields
+            if layout == 'art_series':
+                continue
+
             # Card info
             name = get_from_face_or_card(face, card, 'name')
             mana_cost = get_from_face_or_card(face, card, 'mana_cost', '')

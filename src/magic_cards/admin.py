@@ -25,7 +25,7 @@ class SetAdmin(admin.ModelAdmin):
 @admin.register(Printing)
 class PrintingAdmin(admin.ModelAdmin):
     search_fields = ['card__name']
-    list_filter = ['set']
+    list_filter = ['promo_types', 'frame_effects', 'set']
     raw_id_fields = ['card']
 
 
