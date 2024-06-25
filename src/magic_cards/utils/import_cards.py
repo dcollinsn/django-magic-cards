@@ -97,7 +97,7 @@ def parse_data(sets_data, set_codes):
         for card_data in all_cards_data:
             # Skip tokens
             layout = card_data['layout']
-            if layout == 'token':
+            if layout in ('token', 'art_series'):
                 continue
 
             # Card info
