@@ -1,0 +1,21 @@
+version: 2
+updates:
+- package-ecosystem: pip
+  directory: "/"
+  schedule:
+    interval: daily
+  open-pull-requests-limit: 99
+  ignore:
+  - dependency-name: inflect
+    versions:
+    - 5.0.2
+    - 5.2.0
+  - dependency-name: coverage
+    versions:
+    - "5.4"
+  - dependency-name: pytz
+    versions:
+    - "2020.5"
+  - dependency-name: yapf
+    versions:
+    - 0.30.0
